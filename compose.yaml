@@ -1,0 +1,36 @@
+networks:
+  app-tier:
+    driver: bridge
+
+services:
+  node1:
+    build: .
+    restart: always
+    networks:
+      - app-tier
+    command: sleep infinity
+    ports:
+      - "18888:8888"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+  node2:
+    image: 'nvidia/cuda:12.0.0-cudnn8-devel-ubuntu20.04'
+    build: .
+    restart: always
+    networks:
+      - app-tier
+    command: sleep infinity
+    ports:
+      - "28888:8888"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
