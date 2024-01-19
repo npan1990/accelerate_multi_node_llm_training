@@ -1,0 +1,79 @@
+version: "7"
+
+services:
+  ray-head:
+    image: paper
+    ports:
+      - "${REDISPORT}:${REDISPORT}"
+      - "${DASHBOARDPORT}:${DASHBOARDPORT}"
+      - "${HEADNODEPORT}:${HEADNODEPORT}"
+    env_file:
+      - .env
+    command: bash -c "ray start --head --dashboard-port=${DASHBOARDPORT} --port=${REDISPORT} --dashboard-host=0.0.0.0 --redis-password=${REDISPASSWORD} --block"
+    shm_size: 6g
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '8g'
+    #networks:
+    #  - ray_net
+    network_mode: "host"
+    volumes:
+      - /mnt/sushi/Storage/homes/kddlab/ray:/ray/
+
+  ray-worker:
+    image: paper
+    depends_on: 
+      - ray-head
+    env_file:
+      - .env
+    entrypoint: bash -c "sleep 10 && ray start --node-ip-address=88.197.52.51  --address='thalis.madgik.di.uoa.gr:6379' && sleep infinity" # bash -c "ray start --address=ray-head:${REDISPORT} --redis-password=${REDISPASSWORD} --num-cpus=${NUM_CPU_WORKER} --block" 
+    shm_size: 2g
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        reservations:
+          cpus: "1.0"
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+        limits:
+          cpus: '1'
+          memory: 8000M
+    #networks:
+    #  - ray_net
+    network_mode: "host"
+    volumes:
+      - /mnt/sushi/Storage/homes/kddlab/ray:/ray/
+  cpu-worker:
+    image: paper
+    depends_on: 
+      - ray-head
+    env_file:
+      - .env
+    entrypoint: bash -c "sleep 10 && ray start --node-ip-address=88.197.52.51 --address='thalis.madgik.di.uoa.gr:6379' && sleep infinity" # bash -c "ray start --address=ray-head:${REDISPORT} --redis-password=${REDISPASSWORD} --num-cpus=${NUM_CPU_WORKER} --block" 
+    shm_size: 2g
+    deploy:
+      mode: replicated
+      replicas: 10
+      resources:
+        reservations:
+          cpus: "1.0"
+        limits:
+          cpus: '1'
+          memory: 5000M
+    #networks:
+    #  - ray_net
+    network_mode: "host"
+    volumes:
+      - /mnt/sushi/Storage/homes/kddlab/ray:/ray/
+  
+networks:
+  ray_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.63.0.0/16
